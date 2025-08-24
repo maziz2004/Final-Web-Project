@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>برنامج توزيع المياه في الأزمات والطوارئ – غزة</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <!-- Leaflet (خريطة مفتوحة المصدر) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <style>
+    :root{
+      --bg:#0b132b;       /* كحلي داكن */
+      --bg-soft:#1c2541;  /* كحلي أفتح */
+      --primary:#3a86ff;  /* أزرق */
+      --accent:#4cc9f0;   /* أزرق فاتح */
+      --success:#2ec4b6;  /* أخضر مائي */
+      --warning:#ffbe0b;  /* أصفر */
+      --danger:#ff595e;   /* أحمر */
+      --text:#e6eefc;     /* أبيض مزرق */
+      --muted:#9fb3d6;    /* رمادي مزرق */
+      --card:#0f1b3d;     /* خلفية البطاقات */
+      --shadow: 0 12px 30px rgba(0,0,0,.25);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:'Cairo', system-ui, sans-serif; color:var(--text); background:linear-gradient(180deg,var(--bg),#0a1026 40%, #091028);
+    }
+    a{color:var(--accent); text-decoration:none}
+    header{
+      position:sticky; top:0; z-index:50; backdrop-filter: blur(10px);
+      background:linear-gradient(180deg, rgba(15,27,61,.85), rgba(15,27,61,.4));
+      border-bottom:1px solid rgba(255,255,255,.08);
+    }
+    .wrap{max-width:1200px; margin:auto; padding:18px}
+    .nav{display:flex; gap:16px; align-items:center; justify-content:space-between}
+    .brand{display:flex; align-items:center; gap:12px}
+    .brand .logo{width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg,var(--primary),var(--accent)); display:grid; place-items:center; box-shadow: var(--shadow)}
+    .brand h1{font-size:20px; margin:0; font-weight:800; letter-spacing:.2px}
+    .nav a{padding:10px 14px; border-radius:12px; transition:.2s background, .2s transform}
+    .nav a:hover{background:rgba(255,255,255,.06); transform:translateY(-2px)}
+
+    .hero{display:grid; grid-template-columns: 1.2fr .8fr; gap:26px; align-items:center; padding:36px 18px 18px}
+    .hero .card{background: radial-gradient(90% 100% at 100% 0%, rgba(58,134,255,.2), transparent 60%), var(--card);
+      border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:28px; box-shadow:var(--shadow)}
+    .badge{display:inline-flex; gap:8px; align-items:center; background:rgba(76,201,240,.16); color:#cfefff; border:1px solid rgba(76,201,240,.35); padding:8px 12px; border-radius:999px; font-weight:700; font-size:13px}
+    .title{font-size:34px; margin:14px 0 6px; line-height:1.2}
+    .subtitle{color:var(--muted); margin:0 0 14px}
+    .quick{display:flex; flex-wrap:wrap; gap:10px; margin-top:14px}
+    .btn{background:linear-gradient(135deg, var(--primary), #6ea8ff); color:white; padding:12px 16px; border:none; border-radius:12px; font-weight:800; cursor:pointer; box-shadow: var(--shadow); transition: .2s transform}
+    .btn:hover{transform:translateY(-2px)}
+    .ghost{background:transparent; border:1px solid rgba(255,255,255,.15); color:var(--text)}
+
+    .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:16px}
+    .stat{background:var(--card); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:18px; text-align:center}
+    .stat b{font-size:26px}
+    .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-size:12px; background:rgba(255,255,255,.06); color:var(--muted)}
+
+    .section{padding:28px 18px}
+    .section h2{margin:0 0 14px; font-size:26px}
+    .grid{display:grid; gap:16px}
+    .grid.cols-3{grid-template-columns:repeat(3,1fr)}
+    .grid.cols-2{grid-template-columns:repeat(2,1fr)}
+    @media(max-width:900px){
+      .hero{grid-template-columns:1fr}
+      .grid.cols-3{grid-template-columns:1fr}
+      .grid.cols-2{grid-template-columns:1fr}
+      .stats{grid-template-columns:1fr}
+    }
+
+    .card{background:var(--card); border:1px solid rgba(255,255,255,.06); border-radius:var(--radius); padding:16px}
+    .card h3{margin:0 0 6px}
+    .muted{color:var(--muted)}
+
+    /* أيقونات بسيطة (SVG) */
+    .icon{width:26px; height:26px}
+
+    /* نموذج الطلب */
+    form label{display:block; margin:12px 2px 6px; font-weight:700}
+    input, select, textarea{width:100%; padding:12px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background:#0a1430; color:var(--text)}
+    textarea{min-height:100px}
+    .row{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+    .row3{display:grid; grid-template-columns:2fr 1fr 1fr; gap:12px}
+    @media(max-width:700px){.row,.row3{grid-template-columns:1fr}}
+
+    #map{height:320px; border-radius:14px; border:1px solid rgba(255,255,255,.12)}
+
+    .drivers-list{display:grid; grid-template-columns:repeat(5,1fr); gap:10px}
+    .chip{background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); border-radius:999px; padding:8px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px}
+    .chip small{color:var(--muted)}
+    @media(max-width:980px){.drivers-list{grid-template-columns:1fr 1fr}}
+
+    .logos{display:grid; grid-template-columns:repeat(6,1fr); gap:12px}
+    .placeholder{background:repeating-linear-gradient( 45deg, rgba(255,255,255,.06), rgba(255,255,255,.06) 8px, rgba(255,255,255,.1) 8px, rgba(255,255,255,.1) 16px ); border:1px dashed rgba(255,255,255,.2); height:74px; border-radius:12px; display:grid; place-items:center; color:#cfe3ff; font-weight:700}
+    @media(max-width:900px){.logos{grid-template-columns:repeat(3,1fr)}}
+
+    .footer{padding:22px 18px; color:var(--muted); text-align:center}
+
+    /* نافذة التأكيد */
+    .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(4,8,20,.6); z-index:100}
+    .modal .box{background:var(--card); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:20px; max-width:720px; width:min(95%, 720px); box-shadow: var(--shadow)}
+    .modal.show{display:flex}
+    .box h3{margin:0 0 8px}
+    .grid-info{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+    @media(max-width:740px){.grid-info{grid-template-columns:1fr}}
+    .copy{display:flex; gap:8px; margin-top:10px}
+    textarea.readonly{background:#09142c}
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap nav">
+    <div class="brand">
+      <div class="logo" aria-label="شعار"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.6"><path d="M12 2c3 3 6 6 6 10a6 6 0 1 1-12 0c0-4 3-7 6-10Z"/></svg></div>
+      <h1>برنامج توزيع المياه في الأزمات والطوارئ – غزة</h1>
+    </div>
+    <nav class="links">
+      <a href="#stations">محطات التحلية</a>
+      <a href="#services">مهامنا</a>
+      <a href="#request">إرسال طلب مياه</a>
+      <a href="#partners">المؤسسات الداعمة</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <div class="card">
+      <span class="badge">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 11c4-6 12-6 16 0-4 6-12 6-16 0Z"/></svg>
+        مصلحة مياه بلديات الساحل – المورد الرئيسي للمياه
+      </span>
+      <h2 class="title">إغاثة عاجلة للنازحين وتوزيع مياه الشرب الآمنة</h2>
+      <p class="subtitle">نستقبل طلبات توريد المياه من المخيمات المحتاجة بشكل طارئ، ونقوم بتحديد الكمية اللازمة (10 لتر/فرد) وتوجيه الشاحنات الأنسب مع إخطار الجهة المسؤولة بالتفاصيل كاملة.</p>
+      <div class="quick">
+        <a class="btn" href="#request">إرسال طلب مياه الآن</a>
+        <a class="btn ghost" href="#services">التعرّف على المهام</a>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="pill">جاهزية</div><b>3</b><div class="muted">محطات تحلية</div></div>
+      <div class="stat"><div class="pill">أسطول</div><b>10</b><div class="muted">سائقو شاحنات</div></div>
+      <div class="stat"><div class="pill">السعات</div><b>5–23</b><div class="muted">م³ للشاحنة</div></div>
+    </div>
+  </section>
+
+  <section id="stations" class="section">
+    <h2>محطات التحلية العاملة بالشراكة مع المصلحة</h2>
+    <div class="grid cols-3">
+      <article class="card">
+        <h3>1) محطة البصّة – وسط دير البلح</h3>
+        <p class="muted">مكان لصورة (<span class="pill">شعار/صورة</span>)</p>
+        <p class="muted">وصف مختصر للمحطة وسعتها التشغيلية – يتم استبداله لاحقاً.</p>
+      </article>
+      <article class="card">
+        <h3>2) محطة تحلية الجنوب</h3>
+        <p class="muted">مكان لصورة (<span class="pill">شعار/صورة</span>)</p>
+        <p class="muted">وصف مختصر للمحطة وسعتها التشغيلية – يتم استبداله لاحقاً.</p>
+      </article>
+      <article class="card">
+        <h3>3) محطة تحلية مخازن المصلحة – قرب جامعة الأقصى</h3>
+        <p class="muted">مكان لصورة (<span class="pill">شعار/صورة</span>)</p>
+        <p class="muted">وصف مختصر للمحطة وسعتها التشغيلية – يتم استبداله لاحقاً.</p>
+      </article>
+    </div>
+  </section>
+
+  <section id="services" class="section">
+    <h2>مهامنا في قطاع غزة</h2>
+    <div class="grid cols-3">
+      <div class="card">
+        <h3>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2c3 3 6 6 6 10a6 6 0 1 1-12 0c0-4 3-7 6-10Z"/></svg>
+          توزيع مياه صالحة للشرب
+        </h3>
+        <p class="muted">عبر محطات التحلية المذكورة وتوريدها للمخيمات.</p>
+      </div>
+      <div class="card">
+        <h3>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M5 7h14M7 17h10"/></svg>
+          الصرف الصحي
+        </h3>
+        <p class="muted">العمل في مجال الصرف الصحي للحفاظ على السلامة والصحة العامة.</p>
+      </div>
+      <div class="card">
+        <h3>
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12l4 4 12-12"/></svg>
+          تمديد وتصليح شبكات المياه
+        </h3>
+        <p class="muted">بالتعاون مع بلديات قطاع غزة لصيانة الشبكات وإعادة التأهيل.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="request" class="section">
+    <h2>إرسال طلب توريد المياه للمخيم</h2>
+    <div class="grid cols-2">
+      <div class="card">
+        <form id="requestForm">
+          <div class="row">
+            <div>
+              <label>اسم المخيم</label>
+              <input type="text" name="campName" required placeholder="مثال: مخيم المدارس – خان يونس" />
+            </div>
+            <div>
+              <label>اسم مسؤول المخيم</label>
+              <input type="text" name="managerName" required placeholder="الاسم الثلاثي" />
+            </div>
+          </div>
+
+          <div class="row3">
+            <div>
+              <label>موقع المخيم (اسم المنطقة/الحي)</label>
+              <input type="text" name="campArea" required placeholder="مثال: منطقة الوسطى – النصيرات" />
+            </div>
+            <div>
+              <label>عدد العائلات</label>
+              <input type="number" name="families" min="0" value="0" />
+            </div>
+            <div>
+              <label>عدد الأفراد</label>
+              <input type="number" name="people" min="1" required placeholder="إجمالي الأفراد" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>هاتف مسؤول المخيم</label>
+              <input type="tel" name="managerPhone" required placeholder="05xxxxxxxx" />
+            </div>
+            <div>
+              <label>المؤسسة الداعمة</label>
+              <select name="supportOrg" required>
+                <option value="أطباء بلا حدود">أطباء بلا حدود</option>
+                <option value="العمل ضد الجوع">العمل ضد الجوع</option>
+                <option value="الإغاثة الزراعية">الإغاثة الزراعية</option>
+                <option value="أوكسفام">أوكسفام</option>
+                <option value="اليونيسف">اليونيسف</option>
+                <option value="إنقاذ الطفل">إنقاذ الطفل</option>
+                <option value="مؤسسة التضامن الدولي">مؤسسة التضامن الدولي</option>
+                <option value="هيومان أبيل">هيومان أبيل</option>
+                <option value="MAP">MAP</option>
+              </select>
+            </div>
+          </div>
+
+          <label>عنوان المخيم بالتفصيل</label>
+          <textarea name="address" placeholder="وصف دقيق: شارع، معلم، قرب..." required></textarea>
+
+          <div class="row">
+            <div>
+              <label>اختيار محطة التحلية</label>
+              <select name="station" required>
+                <option>محطة البصّة – وسط دير البلح</option>
+                <option>محطة تحلية الجنوب</option>
+                <option>محطة تحلية مخازن المصلحة – قرب جامعة الأقصى</option>
+              </select>
+            </div>
+            <div>
+              <label>موعد إرسال الشاحنة</label>
+              <input type="datetime-local" name="dispatchTime" required />
+            </div>
+          </div>
+
+          <label>تحديد موقع المخيم على الخريطة</label>
+          <div id="map"></div>
+          <div class="row">
+            <div>
+              <label>خط العرض (Latitude)</label>
+              <input type="text" name="lat" id="lat" placeholder="31.4" />
+            </div>
+            <div>
+              <label>خط الطول (Longitude)</label>
+              <input type="text" name="lng" id="lng" placeholder="34.3" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>اختيار السائق</label>
+              <select name="driverName" id="driverName" required></select>
+            </div>
+            <div>
+              <label>هاتف السائق (تلقائي)</label>
+              <input type="tel" name="driverPhone" id="driverPhone" readonly class="readonly" />
+            </div>
+          </div>
+
+          <div class="row">
+            <div>
+              <label>سعة الشاحنة</label>
+              <select name="truckCapacity" id="truckCapacity" required>
+                <option value="5">5 م³</option>
+                <option value="10">10 م³</option>
+                <option value="15">15 م³</option>
+                <option value="20">20 م³</option>
+                <option value="23">23 م³</option>
+              </select>
+            </div>
+            <div>
+              <label>حساب تلقائي للسعة المطلوبة (10 لتر/فرد)</label>
+              <button type="button" class="btn" id="autoCalc">احسب السعة</button>
+            </div>
+          </div>
+
+          <div class="quick">
+            <button class="btn" type="submit">إرسال الطلب</button>
+            <button class="btn ghost" type="reset">تفريغ الحقول</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>ملاحظات هامة</h3>
+        <ul>
+          <li>الكمية القياسية = <b>10 لتر لكل فرد</b>.</li>
+          <li>سعات الشاحنات المتاحة: <b>5 – 10 – 15 – 20 – 23</b> م³.</li>
+          <li>يمكن وضع <b>صور/شعارات</b> للمحطات والمؤسسات في الأماكن المخصّصة.</li>
+          <li>سيتم إرسال رسالة تأكيد لمُعبِّئ الطلب تتضمن: <b>اسم السائق</b>، <b>الكمية</b>، <b>موعد الإرسال</b>، <b>هاتف السائق</b>، و<b>اسم المؤسسة الداعمة</b>.</li>
+        </ul>
+        <hr style="border-color:rgba(255,255,255,.1)">
+        <h3>السائقون</h3>
+        <div id="drivers" class="drivers-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="partners" class="section">
+    <h2>المؤسسات الداعمة</h2>
+    <div class="logos">
+      <div class="placeholder">شعار أطباء بلا حدود</div>
+      <div class="placeholder">شعار  العمل ضد الجوع</div>
+      <div class="placeholder">شعار الإغاثة الزراعية</div>
+      <div class="placeholder">شعار  أوكسفام</div>
+      <div class="placeholder">شعار  اليونيسف</div>
+      <div class="placeholder">شعار  إنقاذ الطفل</div>
+      <div class="placeholder">شعار  التضامن الدولي</div>
+      <div class="placeholder">شعار  هيومان أبيل</div>
+      <div class="placeholder">شعار– MAP</div>
+      <div class="placeholder">صورة محطة 1</div>
+      <div class="placeholder">صورة محطة 2</div>
+      <div class="placeholder">صورة محطة 3</div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    © برنامج توزيع المياه في الأزمات والطوارئ – غزة. بالتعاون مع مصلحة مياه بلديات الساحل.
+  </footer>
+</main>
+
+<!-- نافذة التأكيد -->
+<div class="modal" id="confirmModal" role="dialog" aria-modal="true">
+  <div class="box">
+    <h3>تم إنشاء الطلب بنجاح ✅</h3>
+    <p class="muted">يمكنك نسخ النص وإرساله عبر واتساب/رسالة قصيرة لمسؤول المخيم.</p>
+    <div id="summary" class="grid-info"></div>
+    <label>نصّ الرسالة الجاهز للإرسال</label>
+    <textarea id="shareText" class="readonly" readonly></textarea>
+    <div class="copy">
+      <button class="btn" id="copyBtn">نسخ الرسالة</button>
+      <button class="btn ghost" id="closeModal">إغلاق</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // قائمة السائقين + أرقام (يمكن تعديلها)
+  const drivers = [
+    {name:'بلال كحيل', phone:'0599-000001'},
+    {name:'علي كحيل', phone:'0599-000002'},
+    {name:'شادي كحيل', phone:'0599-000003'},
+    {name:'علي الأعرج', phone:'0599-000004'},
+    {name:'محمود بارود', phone:'0599-000005'},
+    {name:'مشعل مشعل', phone:'0599-000006'},
+    {name:'باسم أبو سليمة', phone:'0599-000007'},
+    {name:'حسام اليازوري', phone:'0599-000008'},
+    {name:'عز القيق', phone:'0599-000009'},
+    {name:'محمود البسيوني', phone:'0599-000010'}
+  ];
+
+  const driverSelect = document.getElementById('driverName');
+  const driverPhone = document.getElementById('driverPhone');
+  const driversDiv = document.getElementById('drivers');
+
+  // تعبئة قائمة السائقين
+  drivers.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d.name; opt.textContent = d.name; driverSelect.appendChild(opt);
+
+    const chip = document.createElement('div');
+    chip.className='chip';
+    chip.innerHTML = `<span>${d.name}</span><small>${d.phone}</small>`;
+    driversDiv.appendChild(chip);
+  });
+  driverPhone.value = drivers[0].phone;
+  driverSelect.addEventListener('change', e=>{
+    const d = drivers.find(x=>x.name===e.target.value); driverPhone.value = d? d.phone: '';
+  });
+
+  // خريطة
+  let map, marker;
+  function initMap(){
+    map = L.map('map').setView([31.45, 34.4], 11); // غزة تقريباً
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
+    function placeMarker(latlng){
+      if(marker) marker.remove();
+      marker = L.marker(latlng).addTo(map);
+      document.getElementById('lat').value = latlng.lat.toFixed(6);
+      document.getElementById('lng').value = latlng.lng.toFixed(6);
+    }
+    map.on('click', e=> placeMarker(e.latlng));
+  }
+  document.addEventListener('DOMContentLoaded', initMap);
+
+  // حساب السعة المطلوبة تلقائياً
+  function litersToCubic(liters){ return liters/1000; }
+  function chooseTruckCombo(requiredM3){
+    const capacities = [23,20,15,10,5]; // م³ – نزولاً
+    const combo = [];
+    let remaining = requiredM3;
+    for(const cap of capacities){
+      if(remaining <= 0) break;
+      const n = Math.floor(remaining / cap);
+      if(n>0){ for(let i=0;i<n;i++) combo.push(cap); remaining -= n*cap; }
+    }
+    if(remaining>0){
+      // لم يتبقِ إلا جزء بسيط: اختر أصغر شاحنة تكفيه
+      for(let i=capacities.length-1;i>=0;i--){
+        const cap = capacities[i];
+        if(cap >= remaining - 1e-9){ combo.push(cap); remaining = 0; break; }
+      }
+    }
+    return combo;
+  }
+
+  document.getElementById('autoCalc').addEventListener('click', ()=>{
+    const people = parseInt(document.querySelector('[name="people"]').value||'0',10);
+    if(!people||people<1){ alert('يرجى إدخال عدد الأفراد.'); return; }
+    const liters = people * 10; // 10 لتر لكل فرد
+    const m3 = litersToCubic(liters); // م³
+    const combo = chooseTruckCombo(m3);
+    // ضبط أول خيار في القائمة لسعة أول شاحنة مقترحة
+    if(combo.length){
+      document.getElementById('truckCapacity').value = String(combo[0]);
+      alert(`الكمية المطلوبة ≈ ${m3.toFixed(2)} م³ ( ${liters} لتر )\nاقتراح: ${combo.join(' + ')} م³ من الشاحنات.`);
+    }
+  });
+
+  // معالجة الإرسال
+  const form = document.getElementById('requestForm');
+  const modal = document.getElementById('confirmModal');
+  const summary = document.getElementById('summary');
+  const shareText = document.getElementById('shareText');
+  const copyBtn = document.getElementById('copyBtn');
+  const closeModal = document.getElementById('closeModal');
+
+  form.addEventListener('submit', (e)=>{
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(form).entries());
+
+    const people = parseInt(data.people||'0',10);
+    const liters = people * 10; // 10 لتر/فرد
+    const m3req = litersToCubic(liters);
+
+    // إذا السعة المختارة أقل من المطلوب، اقترح مجموعة شاحنات
+    let combo = [];
+    const chosen = parseFloat(data.truckCapacity);
+    if(chosen < m3req){ combo = chooseTruckCombo(m3req); }
+
+    const driver = drivers.find(d=>d.name===data.driverName) || drivers[0];
+
+    const blocks = [
+      {k:'اسم المخيم', v:data.campName},
+      {k:'مسؤول المخيم', v:data.managerName},
+      {k:'هاتف المسؤول', v:data.managerPhone},
+      {k:'المنطقة', v:data.campArea},
+      {k:'العائلات', v:data.families},
+      {k:'الأفراد', v:people},
+      {k:'المؤسسة الداعمة', v:data.supportOrg},
+      {k:'محطة التحلية', v:data.station},
+      {k:'الموقع الجغرافي', v:`${data.lat||'-'}, ${data.lng||'-'}`},
+      {k:'الكمية المطلوبة', v:`${liters} لتر ≈ ${m3req.toFixed(2)} م³`},
+      {k:'سعة الشاحنة المختارة', v:`${chosen} م³`},
+      {k:'اقتراح الشاحنات (إن لزم)', v: combo.length? combo.join(' + ')+' م³' : '—'},
+      {k:'السائق المكلّف', v: driver.name},
+      {k:'هاتف السائق', v: driver.phone},
+      {k:'موعد الإرسال', v: new Date(data.dispatchTime).toLocaleString('ar-EG')}
+    ];
+
+    summary.innerHTML = blocks.map(b=>`<div class="card"><b>${b.k}</b><div class="muted">${b.v}</div></div>`).join('');
+
+    const msg = `إشعار توريد مياه للمخيم\n\n`+
+      `اسم المخيم: ${data.campName}\n`+
+      `مسؤول المخيم: ${data.managerName} (${data.managerPhone})\n`+
+      `الموقع: ${data.campArea} – الإحداثيات: ${data.lat||'-'}, ${data.lng||'-'}\n`+
+      `عدد الأفراد: ${people} | الكمية: ${liters} لتر (≈ ${m3req.toFixed(2)} م³)\n`+
+      `المؤسسة الداعمة: ${data.supportOrg}\n`+
+      `المحطة: ${data.station}\n`+
+      `السائق المكلّف: ${driver.name} – هاتف: ${driver.phone}\n`+
+      `سعة الشاحنة المختارة: ${chosen} م³` + (combo.length? ` | اقتراح: ${combo.join(' + ')} م³` : '') + `\n`+
+      `موعد إرسال الشاحنة: ${new Date(data.dispatchTime).toLocaleString('ar-EG')}\n\n`+
+      `— برنامج توزيع المياه في الأزمات والطوارئ – غزة`;
+
+    shareText.value = msg;
+    modal.classList.add('show');
+    window.scrollTo({top:0, behavior:'smooth'});
+  });
+
+  copyBtn.addEventListener('click', ()=>{
+    shareText.select(); document.execCommand('copy');
+    copyBtn.textContent = 'تم النسخ ✓';
+    setTimeout(()=> copyBtn.textContent='نسخ الرسالة', 1800);
+  });
+  closeModal.addEventListener('click', ()=> modal.classList.remove('show'));
+</script>
+
+</body>
+</html>
